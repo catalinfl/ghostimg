@@ -1,48 +1,59 @@
 package ghostimg
 
 import (
+	"log"
 	"mime/multipart"
 	"net/http"
 )
 
-func SaveMultipartForm(file *multipart.FileHeader) error {
-	headerType := file.Header.Get("Content-Type")
+func SaveFileMultipart(file *multipart.FileHeader) error {
+	return nil
+}
 
-	if headerType != "image/png" && headerType != "image/jpeg" {
-		return ErrInvalidFileType
+// UploadMultipartDirect uploads a file using multipart, formName should be specified in function, not in query
+func UploadMultipartDirect(w http.ResponseWriter, r *http.Request, formNames ...string) error {
+
+	err := r.ParseMultipartForm(DefaultMaxPhotoSizeMultipart)
+
+	if err != nil {
+		return ErrParseMultipartForm
+	}
+
+	for _, formName := range formNames {
+		file, handler, err := r.FormFile(formName)
+
+		log.Printf("formName: %s", formName)
+
+		if err != nil {
+			return ErrFileDoesntExist
+		}
+
+		err = SaveFileMultipart(handler)
+
+		if err != nil {
+			return ErrUploadingPhoto
+		}
+
+		log.Printf("Uploaded file: %s", handler.Filename)
+
+		defer file.Close()
 	}
 
 	return nil
 }
 
-func SaveMultipart(formName string, w http.ResponseWriter, r *http.Request) {
+// UploadFileMultipart uploads a file using multipart form data. The form name must be specified in the query string. (?formName=...)
+func UploadFileMultipart(w http.ResponseWriter, r *http.Request) error {
 
-	err := r.ParseMultipartForm(DefaultMaxPhotoSizeMultipart)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	file, handler, err := r.FormFile(formName)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	defer file.Close()
-
-	err = SaveMultipartForm(handler)
-}
-
-func UploadFileMultipart(w http.ResponseWriter, r *http.Request) {
 	formName := r.URL.Query().Get("formName")
 
+	log.Printf("formName: %s", formName)
+
 	if formName == "" {
-		http.Error(w, "formName is required", http.StatusBadRequest)
-		return
+		return ErrFormNameNotSpecified
 	}
 
-	SaveMultipart(formName, w, r)
+	UploadMultipartDirect(w, r, formName)
+
+	return nil
 }
