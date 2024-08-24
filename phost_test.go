@@ -1,10 +1,7 @@
 package ghostimg
 
 import (
-	"bytes"
 	"mime/multipart"
-	"net/http"
-	"net/http/httptest"
 	"net/textproto"
 	"testing"
 
@@ -38,7 +35,10 @@ func TestMultipart(t *testing.T) {
 		Size: 100,
 	}
 
-	err := SaveFileMultipart(&file)
+	err := SaveFileMultipart(&file, Paths{
+		DirPath:  "app/utils",
+		FilePath: "test.png",
+	})
 
 	if err != nil {
 		t.Errorf("Expected nil, got %s", err)
@@ -47,19 +47,32 @@ func TestMultipart(t *testing.T) {
 }
 
 func TestMultipartRequest(t *testing.T) {
-	var b bytes.Buffer
+	// var b bytes.Buffer
 
-	w := multipart.NewWriter(&b)
+	// w := multipart.NewWriter(&b)
 
-	req := httptest.NewRequest(http.MethodPost, "/upload?formName=test", &b)
+	// req := httptest.NewRequest(http.MethodPost, "/upload?formName=test", &b)
 
-	req.Header.Set("Content-Type", w.FormDataContentType())
+	// req.Header.Set("Content-Type", w.FormDataContentType())
 
-	rr := httptest.NewRecorder()
+	// // rr := httptest.NewRecorder()
 
-	w.Close()
+	// w.Close()
 
-	err := UploadFileMultipart(rr, req)
+	p := Paths{
+		DirPath:  "app/utils",
+		FilePath: "test.png",
+	}
+
+	file := &multipart.FileHeader{
+		Filename: "test.png",
+		Header: textproto.MIMEHeader{
+			"Content-Type": []string{"image/png"},
+		},
+		Size: 100,
+	}
+
+	err := SaveFileMultipart(file, p)
 
 	if err != nil {
 		t.Errorf("%s", err)
