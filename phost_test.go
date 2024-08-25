@@ -4,44 +4,19 @@ import (
 	"mime/multipart"
 	"net/textproto"
 	"testing"
-
-	"github.com/catalinfl/ghostimg/utils"
 )
 
 func TestPath(t *testing.T) {
 
-	pathmodel := Paths{
-		DirPath:  "app/utils",
-		FilePath: "test.png",
+	pathmodel := Ghost{
+		DirPath:           "app/utils",
+		FileNames:         []string{"test.png"},
+		FormNames:         []string{"test", "fab"},
+		AtRootOfDirectory: true,
 	}
 
-	path := utils.GetRealPath(pathmodel.DirPath, pathmodel.FilePath)
-
-	t.Logf(path)
-
-	if path != "/app/utils/test.png" {
-		t.Errorf("Expected /app/utils/test.png, got %s", path)
-	}
-
-}
-
-func TestMultipart(t *testing.T) {
-
-	file := multipart.FileHeader{
-		Filename: "test.png",
-		Header: textproto.MIMEHeader{
-			"Content-Type": []string{"image/png"},
-		},
-		Size: 100,
-	}
-
-	err := SaveFileMultipart(&file, Paths{
-		DirPath:  "app/utils",
-		FilePath: "test.png",
-	})
-
-	if err != nil {
-		t.Errorf("Expected nil, got %s", err)
+	if pathmodel.DirPath != "app/utils" {
+		t.Errorf("Expected %s, got %s", "app/utils", pathmodel.DirPath)
 	}
 
 }
@@ -59,11 +34,12 @@ func TestMultipartRequest(t *testing.T) {
 
 	// w.Close()
 
-	p := Paths{
-		DirPath:  "app/utils",
-		FilePath: "test.png",
+	g := Ghost{
+		DirPath:           "app/utils",
+		FileNames:         []string{"test.png", "salt.png"},
+		FormNames:         []string{"test", "fab"},
+		AtRootOfDirectory: true,
 	}
-
 	file := &multipart.FileHeader{
 		Filename: "test.png",
 		Header: textproto.MIMEHeader{
@@ -72,7 +48,7 @@ func TestMultipartRequest(t *testing.T) {
 		Size: 100,
 	}
 
-	err := SaveFileMultipart(file, p)
+	err := saveFileMultipart(file, g.DirPath, g.FileNames[0])
 
 	if err != nil {
 		t.Errorf("%s", err)

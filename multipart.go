@@ -6,29 +6,43 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 )
 
-func SaveFileMultipart(file *multipart.FileHeader, p Paths) error {
+func createDirIfNotExists(dirPath string, rootValue bool) string {
 
-	var err error
-
-	if os.Stat(p.DirPath); os.IsNotExist(err) {
-		err := os.MkdirAll(p.DirPath, os.ModePerm)
-		if err != nil {
-			return err
+	if !rootValue {
+		dirPath = strings.TrimPrefix(dirPath, "/")
+	} else {
+		if !strings.HasPrefix(dirPath, "/") {
+			dirPath = "/" + dirPath
 		}
 	}
 
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		err := os.MkdirAll(dirPath, os.ModePerm)
+		if err != nil {
+			log.Printf("Error creating directory: %v", err)
+		}
+	}
+
+	return dirPath
+}
+
+func saveFileMultipart(file *multipart.FileHeader, dirPath string, fileName string) error {
+
 	src, err := file.Open()
+
 	if err != nil {
 		return err
 	}
 	defer src.Close()
 
-	dst, err := os.Create(p.FilePath)
+	dst, err := os.Create(dirPath + "/" + fileName)
 	if err != nil {
 		return err
 	}
+
 	defer dst.Close()
 
 	_, err = io.Copy(dst, src)
@@ -41,47 +55,31 @@ func SaveFileMultipart(file *multipart.FileHeader, p Paths) error {
 }
 
 // UploadMultipartDirect uploads a file using multipart, formName should be specified in function, not in query
-func UploadMultipartDirect(w http.ResponseWriter, r *http.Request, p Paths, formNames ...string) error {
+func UploadMultipartDirect(w http.ResponseWriter, r *http.Request, g Ghost) error {
 	err := r.ParseMultipartForm(DefaultMaxPhotoSizeMultipart)
 
 	if err != nil {
 		return ErrParseMultipartForm
 	}
 
-	for _, formName := range formNames {
+	for i, formName := range g.FormNames {
 		file, handler, err := r.FormFile(formName)
-
-		log.Printf("formName: %s", formName)
-
 		if err != nil {
+			log.Printf("Error retrieving form file for form name %s: %v", formName, err)
 			return ErrFileDoesntExist
 		}
 
-		err = SaveFileMultipart(handler, p)
+		g.DirPath = createDirIfNotExists(g.DirPath, g.AtRootOfDirectory)
 
+		err = saveFileMultipart(handler, g.DirPath, g.FileNames[i])
 		if err != nil {
+			log.Printf("Error saving file: %v", err)
 			return ErrUploadingPhoto
 		}
 
-		log.Printf("Uploaded file: %s", handler.Filename)
-
+		log.Printf("Uploaded file: %s as %s in %s", handler.Filename, g.FileNames[i], g.DirPath)
 		defer file.Close()
 	}
-
-	return nil
-}
-
-// UploadFileMultipart uploads a file using multipart form data. The form name must be specified in the query string. (?formName=...)
-func UploadFileMultipart(w http.ResponseWriter, r *http.Request, p Paths) error {
-	formName := r.URL.Query().Get("formName")
-
-	log.Printf("formName: %s", formName)
-
-	if formName == "" {
-		return ErrFormNameNotSpecified
-	}
-
-	UploadMultipartDirect(w, r, p, formName)
 
 	return nil
 }
